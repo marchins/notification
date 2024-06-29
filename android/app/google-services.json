@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "884260821161",
+    "project_id": "pillo-8a941",
+    "storage_bucket": "pillo-8a941.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:884260821161:android:14bc830ba56a85ba9df1b8",
+        "android_client_info": {
+          "package_name": "com.example.notification"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQrewsKgwDGVRB-rTblXI1bSj6cdIxsCo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:884260821161:android:d09205f092c7a7ab9df1b8",
+        "android_client_info": {
+          "package_name": "com.example.pillo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQrewsKgwDGVRB-rTblXI1bSj6cdIxsCo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
