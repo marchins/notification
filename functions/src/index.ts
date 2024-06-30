@@ -19,7 +19,7 @@ interface Event {
 export const scrapeEvents = functions
   .region("europe-west1")
   .pubsub
-  .schedule("every 5 hours")
+  .schedule("every 24 hours")
   .onRun(async (context) => {
     const url = "https://www.sansirostadium.com/live/I-grandi-concerti-di-San-Siro";
     const formatString = "d MMMM yyyy";
