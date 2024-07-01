@@ -9,6 +9,10 @@ import {it} from "date-fns/locale";
 admin.initializeApp();
 
 const db = admin.firestore();
+const collection = db.collection("events");
+const docRef = collection.doc();
+
+const location = "Stadio San Siro";
 
 interface Event {
   name: string;
@@ -37,36 +41,57 @@ export const scrapeEvents = functions
             .find(".boxNota")
             .find(".titolo.alignTextCenter div")
             .text().trim();
-          console.log(name);
+          console.log("Concerto: " + name);
 
           const stringedDate = $(element)
             .find(".boxNota")
             .find(".titolo span.uppercase")
             .text().trim();
-          console.log(stringedDate);
+          console.log("Data: " + stringedDate);
           const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
-          console.log(dateWithoutDay);
+          console.log("Data semplificata: " + dateWithoutDay);
           const date = parse(dateWithoutDay, formatString, new Date(),
             {locale: it});
-          console.log(date);
-          const timestamp = date.getTime();
-          console.log(timestamp);
+          console.log("Data parsata" + date);
 
-          const location = "Stadio San Siro";
+          const timestamp = date.getTime();
+          console.log("timestamp: " + timestamp);
 
           if (name && date) {
-            events.push({
-              name,
-              date,
-              location,
-            });
+            let found = false;
+
+            collection
+              .where("name", "==", name)
+              .where("date", "==", date)
+              .get()
+              .then((result) => {
+                result.forEach((doc) => {
+                  console.log("QUERY RESULT for " + name);
+                  console.log(doc.id, doc.data());
+                  found = true;
+                });
+              })
+              .catch((err) => {
+                console.log(name + " not found");
+              });
+
+            if (found === false) {
+              console.log("Inserimento nuovo concerto " + name + " " + date);
+              events.push({
+                name,
+                date,
+                location,
+              });
+            } else {
+              console.log("Concerto " + name + " già presente");
+            }
           }
         });
 
       // Salva gli eventi in Firestore
       const batch = db.batch();
       events.forEach((event) => {
-        const docRef = db.collection("events").doc();
+        console.log(event.name);
         batch.set(docRef, event);
       });
       await batch.commit();
