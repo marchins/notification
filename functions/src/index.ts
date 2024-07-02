@@ -66,25 +66,22 @@ export const scrapeEvents = functions
             .text().trim();
 
           const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
-          console.log("Concerto: " + name + " " + + dateWithoutDay);
-          const date = parse(dateWithoutDay, formatString, new Date(),
-            {locale: it});
-          console.log("Data parsata" + date);
-
+          console.log("1. Concerto: " + name + " " + dateWithoutDay);
+          const date = parse(dateWithoutDay, formatString, new Date(), {locale: it});
 
           if (name && date) {
             // Use a Promise to handle the asynchronous checkEventExists call
             checkEventExists(name, date)
               .then((eventExists) => {
                 if (!eventExists) {
-                  console.log("Inserimento nuovo concerto " + name + " " + date);
+                  console.log("2. Inserimento nuovo concerto " + name + " " + date);
                   events.push({
                     name,
                     date,
                     location,
                   });
                 } else {
-                  console.log("Concerto " + name + " già presente");
+                  console.log("2. Concerto " + name + " già presente");
                 }
               })
               .catch((error) => {
@@ -96,6 +93,8 @@ export const scrapeEvents = functions
       // Wait for all checkEventExists Promises to resolve before saving to Firestore
       await Promise.allSettled(events); // Wait for all Promises to settle
 
+      console.log("3. Ci sono " + events.length + "nuovi concerti");
+
       // Salva gli eventi in Firestore
       const batch = db.batch();
       events.forEach((event) => {
@@ -104,7 +103,7 @@ export const scrapeEvents = functions
       });
       await batch.commit();
 
-      console.log(`Scraped and saved ${events.length} events.`);
+      console.log(`4. Scraped and saved ${events.length} events.`);
       return null;
     } catch (error) {
       console.error("Error scraping San Siro events:", error);
