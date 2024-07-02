@@ -10,9 +10,10 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const collection = db.collection("events");
-const docRef = collection.doc();
 
 const location = "Stadio San Siro";
+const url = "https://www.sansirostadium.com/live/I-grandi-concerti-di-San-Siro";
+const formatString = "d MMMM yyyy";
 
 interface Event {
   name: string;
@@ -20,14 +21,31 @@ interface Event {
   location: string;
 }
 
+/**
+ *
+ * @param {string} name concert name
+ * @param {Data} date concert date
+ * @return {boolean} if exists
+ */
+async function checkEventExists(name: string, date: Date): Promise<boolean> {
+  try {
+    const querySnapshot = await collection
+      .where("name", "==", name)
+      .where("date", "==", date)
+      .get();
+
+    return !querySnapshot.empty; // Returns true if the event exists
+  } catch (error) {
+    console.error("Error checking event existence:", error);
+    throw new functions.https.HttpsError("internal", "Error checking event existence");
+  }
+}
+
 export const scrapeEvents = functions
   .region("europe-west1")
   .pubsub
   .schedule("every 24 hours")
   .onRun(async (context) => {
-    const url = "https://www.sansirostadium.com/live/I-grandi-concerti-di-San-Siro";
-    const formatString = "d MMMM yyyy";
-
     try {
       const {data} = await axios.get(url);
       const $ = cheerio.load(data);
@@ -41,58 +59,48 @@ export const scrapeEvents = functions
             .find(".boxNota")
             .find(".titolo.alignTextCenter div")
             .text().trim();
-          console.log("Concerto: " + name);
 
           const stringedDate = $(element)
             .find(".boxNota")
             .find(".titolo span.uppercase")
             .text().trim();
-          console.log("Data: " + stringedDate);
+
           const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
-          console.log("Data semplificata: " + dateWithoutDay);
+          console.log("Concerto: " + name + " " + + dateWithoutDay);
           const date = parse(dateWithoutDay, formatString, new Date(),
             {locale: it});
           console.log("Data parsata" + date);
 
-          const timestamp = date.getTime();
-          console.log("timestamp: " + timestamp);
 
           if (name && date) {
-            let found = false;
-
-            collection
-              .where("name", "==", name)
-              .where("date", "==", date)
-              .get()
-              .then((result) => {
-                result.forEach((doc) => {
-                  console.log("QUERY RESULT for " + name);
-                  console.log(doc.id, doc.data());
-                  found = true;
-                });
+            // Use a Promise to handle the asynchronous checkEventExists call
+            checkEventExists(name, date)
+              .then((eventExists) => {
+                if (!eventExists) {
+                  console.log("Inserimento nuovo concerto " + name + " " + date);
+                  events.push({
+                    name,
+                    date,
+                    location,
+                  });
+                } else {
+                  console.log("Concerto " + name + " già presente");
+                }
               })
-              .catch((err) => {
-                console.log(name + " not found");
+              .catch((error) => {
+                console.error("Error checking event existence:", error);
               });
-
-            if (found === false) {
-              console.log("Inserimento nuovo concerto " + name + " " + date);
-              events.push({
-                name,
-                date,
-                location,
-              });
-            } else {
-              console.log("Concerto " + name + " già presente");
-            }
           }
         });
+
+      // Wait for all checkEventExists Promises to resolve before saving to Firestore
+      await Promise.allSettled(events); // Wait for all Promises to settle
 
       // Salva gli eventi in Firestore
       const batch = db.batch();
       events.forEach((event) => {
         console.log(event.name);
-        batch.set(docRef, event);
+        batch.set(collection.doc(), event);
       });
       await batch.commit();
 
