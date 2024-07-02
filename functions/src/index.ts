@@ -51,6 +51,7 @@ export const scrapeEvents = functions
       const $ = cheerio.load(data);
 
       const events: Event[] = [];
+      const eventsPromises: Promise<void>[] = []; // Array to store Promises
 
       $(".container")
         .find(".row.row0.row-eq-height")
@@ -70,40 +71,38 @@ export const scrapeEvents = functions
           const date = parse(dateWithoutDay, formatString, new Date(), {locale: it});
 
           if (name && date) {
-            // Use a Promise to handle the asynchronous checkEventExists call
-            checkEventExists(name, date)
-              .then((eventExists) => {
-                if (!eventExists) {
-                  console.log("2. Inserimento nuovo concerto " + name + " " + date);
-                  events.push({
-                    name,
-                    date,
-                    location,
-                  });
-                } else {
-                  console.log("2. Concerto " + name + " già presente");
-                }
-              })
-              .catch((error) => {
-                console.error("Error checking event existence:", error);
-              });
+            eventsPromises.push(new Promise((resolve, reject) => {
+              checkEventExists(name, date)
+                .then((eventExists) => {
+                  if (!eventExists) {
+                    console.log("2. Inserimento nuovo concerto " + name + " " + date);
+                    events.push({
+                      name,
+                      date,
+                      location,
+                    });
+                  } else {
+                    console.log("2. Concerto " + name + " già presente");
+                  }
+                  resolve(); // Resolve the promise for the current event
+                })
+                .catch(reject); // Reject the promise if there is an error
+            }));
           }
         });
 
-      // Wait for all checkEventExists Promises to resolve before saving to Firestore
-      await Promise.allSettled(events); // Wait for all Promises to settle
+      // Wait for all checkEventExists Promises to resolve
+      await Promise.all(eventsPromises);
 
-      console.log("3. Ci sono " + events.length + "nuovi concerti");
+      console.log("3. Ci sono " + events.length + " nuovi concerti");
 
       // Salva gli eventi in Firestore
       const batch = db.batch();
       events.forEach((event) => {
-        console.log(event.name);
         batch.set(collection.doc(), event);
       });
       await batch.commit();
 
-      console.log(`4. Scraped and saved ${events.length} events.`);
       return null;
     } catch (error) {
       console.error("Error scraping San Siro events:", error);
