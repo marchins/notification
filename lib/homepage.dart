@@ -14,7 +14,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final FirestoreService firestoreService = FirestoreService();
 
-  final DateFormat formatter = DateFormat('yyyy-MM-dd');
+  final DateFormat formatter = DateFormat('dd MMMM yyyy');
 
   @override
   Widget build(BuildContext context) {
@@ -32,15 +32,16 @@ class _HomePageState extends State<HomePage> {
               itemCount: eventsList.length,
               itemBuilder: (context, index) {
                 DocumentSnapshot doc = eventsList[index];
-                String docID = doc.id;
+                //String docID = doc.id;
                 Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
                 Timestamp timestamp = data['date'];
                 String formattedDate = formatter.format(timestamp.toDate());
-                String eventText = data['name'] + ': ' + formattedDate;
+                String title = "$formattedDate - ${data['location']}";
+                String subtitle = data['name'];
  
                 return ListTile(
-                  title: Text(eventText),
-                  subtitle: Text(data['location']),
+                  title: Text(title),
+                  subtitle: Text(subtitle),
                 );
 
               },
