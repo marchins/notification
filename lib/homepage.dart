@@ -27,6 +27,7 @@ class _HomePageState extends State<HomePage> {
         builder: (context, snapshot) {
           if (snapshot.hasData) {
             List eventsList = snapshot.data!.docs;
+            eventsList.sort((a, b) => a.data()['date'].compareTo(b.data()['date']));
             return ListView.builder(
               itemCount: eventsList.length,
               itemBuilder: (context, index) {
