@@ -16,6 +16,15 @@ class _HomePageState extends State<HomePage> {
 
   final DateFormat formatter = DateFormat('dd MMMM yyyy');
 
+  bool isBeforeToday(Timestamp timestamp) {
+    return DateTime.now().toUtc().isAfter(
+        DateTime.fromMillisecondsSinceEpoch(
+            timestamp.millisecondsSinceEpoch,
+            isUtc: false,
+        ).toUtc(),
+    );
+}
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -26,8 +35,11 @@ class _HomePageState extends State<HomePage> {
         stream: firestoreService.getEvents(),
         builder: (context, snapshot) {
           if (snapshot.hasData) {
+            
             List eventsList = snapshot.data!.docs;
             eventsList.sort((a, b) => a.data()['date'].compareTo(b.data()['date']));
+            eventsList.removeWhere((element) => isBeforeToday(element.data()['date']));
+            
             return ListView.builder(
               itemCount: eventsList.length,
               itemBuilder: (context, index) {
