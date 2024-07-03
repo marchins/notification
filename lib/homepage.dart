@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:notification/services/firestore.dart';
 import 'package:intl/intl.dart';
 
+final FirestoreService firestoreService = FirestoreService();
+final DateFormat formatter = DateFormat('dd MMMM yyyy');
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,10 +14,20 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  final FirestoreService firestoreService = FirestoreService();
 
-  final DateFormat formatter = DateFormat('dd MMMM yyyy');
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      home: const ListTileWidget(),
+    );
+  }
+}
 
+class ListTileWidget extends StatelessWidget {
+  
+  const ListTileWidget({super.key});
+  
   bool isBeforeToday(Timestamp timestamp) {
     return DateTime.now().toUtc().isAfter(
         DateTime.fromMillisecondsSinceEpoch(
@@ -23,7 +35,7 @@ class _HomePageState extends State<HomePage> {
             isUtc: false,
         ).toUtc(),
     );
-}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,12 +62,15 @@ class _HomePageState extends State<HomePage> {
                 String formattedDate = formatter.format(timestamp.toDate());
                 String title = "$formattedDate - ${data['location']}";
                 String subtitle = data['name'];
+                
  
                 return ListTile(
+                  leading: Icon(Icons.event),
+                  tileColor: const Color.fromARGB(255, 54, 171, 244),
+                  isThreeLine: true,
                   title: Text(title),
                   subtitle: Text(subtitle),
                 );
-
               },
             );
           }
@@ -63,7 +78,7 @@ class _HomePageState extends State<HomePage> {
             return const Text("NO DATA");
           }
         },
-      ),
+      )
     );
   }
 }
