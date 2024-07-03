@@ -62,14 +62,13 @@ class ListTileWidget extends StatelessWidget {
                 String formattedDate = formatter.format(timestamp.toDate());
                 String title = "$formattedDate - ${data['location']}";
                 String subtitle = data['name'];
-                
- 
-                return ListTile(
-                  leading: Icon(Icons.event),
-                  tileColor: const Color.fromARGB(255, 54, 171, 244),
-                  isThreeLine: true,
-                  title: Text(title),
-                  subtitle: Text(subtitle),
+
+                return Card(
+                  child: ListTile(
+                    title: Text(title),
+                    subtitle: Text(subtitle),
+                    leading: Icon(Icons.event),
+                  ),
                 );
               },
             );
