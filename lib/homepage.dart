@@ -71,13 +71,29 @@ class ListTileWidget extends StatelessWidget {
                              DateTime.now().month == eventDate.month &&
                              DateTime.now().day == eventDate.day;
 
+                Duration difference = eventDate.difference(DateTime.now());
+
                 return Card(
-                  color: isToday ? const Color.fromARGB(255, 249, 93, 82) : null,
-                  child: ListTile(
-                    title: Text(title),
-                    subtitle: Text(subtitle),
-                    leading: Icon(Icons.event),
-                  ),
+                  color: isToday ? Color.fromARGB(255, 253, 55, 41) : null,
+                  child: Column(
+                    children: <Widget>[
+                      ListTile(
+                        title: Text(title),
+                        subtitle: Text(subtitle),
+                        leading: Icon(Icons.event),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        
+                        children: <Widget>[
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(difference.inDays > 0 ? "Tra ${difference.inDays} giorni" : "Oggi")
+                          )
+                        ],
+                      ),
+                    ],
+                  )
                 );
               },
             );
