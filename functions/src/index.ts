@@ -19,29 +19,6 @@ interface Event {
   location: string;
 }
 
-/**
- *
- * @param {string} name concert name
- * @param {Data} date concert date
- * @return {boolean} if exists
- */
-async function checkEventExists(name: string, date: Date): Promise<boolean> {
-  try {
-    const querySnapshot = await collection
-      .where("name", "==", name)
-      .where("date", "==", date)
-      .get();
-
-    return !querySnapshot.empty; // Returns true if the event exists
-  } catch (error) {
-    console.error("Error checking event existence:", error);
-    throw new functions.https.HttpsError(
-      "internal",
-      "Error checking event existence"
-    );
-  }
-}
-
 export const scrapeEvents = functions
   .region("europe-west1")
   .pubsub.schedule("every 24 hours")
@@ -78,6 +55,29 @@ export const scrapeEvents = functions
       throw new functions.https.HttpsError("internal", "Error scraping events");
     }
   });
+
+/**
+ *
+ * @param {string} name concert name
+ * @param {Data} date concert date
+ * @return {boolean} if exists
+ */
+async function checkEventExists(name: string, date: Date): Promise<boolean> {
+  try {
+    const querySnapshot = await collection
+      .where("name", "==", name)
+      .where("date", "==", date)
+      .get();
+
+    return !querySnapshot.empty; // Returns true if the event exists
+  } catch (error) {
+    console.error("Error checking event existence:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Error checking event existence"
+    );
+  }
+}
 
 /**
  *
