@@ -12,5 +12,7 @@ firebase deploy --only functions
 
 
 ## App
+# Android
 flutter build apk --release
+# iOS 
 
