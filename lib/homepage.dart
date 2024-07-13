@@ -27,15 +27,18 @@ class _HomePageState extends State<HomePage> {
 class ListTileWidget extends StatelessWidget {
   
   const ListTileWidget({super.key});
-  
+
   bool isBeforeToday(Timestamp timestamp) {
-    return DateTime.now().toUtc().isAfter(
-        DateTime.fromMillisecondsSinceEpoch(
-            timestamp.millisecondsSinceEpoch,
-            isUtc: false,
-        ).toUtc(),
-    );
-  }
+    DateTime now = DateTime.now().toUtc();
+    DateTime today = DateTime.utc(now.year, now.month, now.day); // Inizio di oggi in UTC
+    DateTime dateToCheck = DateTime.fromMillisecondsSinceEpoch(
+      timestamp.millisecondsSinceEpoch,
+      isUtc: false,
+    ).toUtc();
+    DateTime dateOnly = DateTime.utc(dateToCheck.year, dateToCheck.month, dateToCheck.day); // Inizio del giorno da verificare in UTC
+    return dateOnly.isBefore(today);
+}
+
 
   @override
   Widget build(BuildContext context) {
