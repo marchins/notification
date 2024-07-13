@@ -11,8 +11,6 @@ admin.initializeApp();
 const db = admin.firestore();
 const collection = db.collection("events");
 
-const location = "Stadio San Siro";
-const url = "https://www.sansirostadium.com/live/I-grandi-concerti-di-San-Siro";
 const formatString = "d MMMM yyyy";
 
 interface Event {
@@ -50,26 +48,33 @@ export const scrapeEvents = functions
   .onRun(async (context) => {
     try {
       const {
-        eventsPromises,
-        events,
-      }: { eventsPromises: Promise<void>[]; events: Event[] } =
-        await scrapeSanSiroConcerts();
+        eventsPromises: sanSiroEventsPromises,
+        events: sanSiroEvents,
+      }: { eventsPromises: Promise<void>[]; events: Event[] } = await scrapeSanSiroConcerts();
+      const {
+        eventsPromises: ippodromoEventsPromises,
+        events: ippodromoEvents,
+      }: { eventsPromises: Promise<void>[]; events: Event[] } = await scrapeIppodromoConcerts();
+      console.log(ippodromoEvents.length);
 
       // Wait for all checkEventExists Promises to resolve
-      await Promise.all(eventsPromises);
+      await Promise.all(sanSiroEventsPromises);
+      await Promise.all(ippodromoEventsPromises);
 
-      console.log("3. Ci sono " + events.length + " nuovi concerti");
+      const allEvents = [...sanSiroEvents, ...ippodromoEvents];
+
+      console.log("3. Ci sono " + allEvents.length + " nuovi concerti");
 
       // Salva gli eventi in Firestore
       const batch = db.batch();
-      events.forEach((event) => {
+      allEvents.forEach((event) => {
         batch.set(collection.doc(), event);
       });
       await batch.commit();
 
       return null;
     } catch (error) {
-      console.error("Error scraping San Siro events:", error);
+      console.error("Error scraping events:", error);
       throw new functions.https.HttpsError("internal", "Error scraping events");
     }
   });
@@ -79,6 +84,9 @@ export const scrapeEvents = functions
  * @return {Object} events
  */
 async function scrapeSanSiroConcerts() {
+  console.log("Scraping concerti a San Siro");
+  const location = "Stadio San Siro";
+  const url = "https://www.sansirostadium.com/live/I-grandi-concerti-di-San-Siro";
   const {data} = await axios.get(url);
   const $ = cheerio.load(data);
 
@@ -101,7 +109,7 @@ async function scrapeSanSiroConcerts() {
         .trim();
 
       const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
-      console.log("1. Concerto: " + name + " " + dateWithoutDay);
+      console.log("Trovato: " + name + " " + dateWithoutDay);
       const date = parse(dateWithoutDay, formatString, new Date(), {
         locale: it,
       });
@@ -112,8 +120,79 @@ async function scrapeSanSiroConcerts() {
             checkEventExists(name, date)
               .then((eventExists) => {
                 if (!eventExists) {
-                  if (new Date() < new Date(date)) {
-                    console.log("Evento già passato");
+                  if (new Date() > new Date(date)) {
+                    console.log("Evento " + name + " già passato");
+                  } else {
+                    console.log(
+                      "Inserimento nuovo concerto " + name + " " + date
+                    );
+                    events.push({
+                      name,
+                      date,
+                      location,
+                    });
+                  }
+                } else {
+                  console.log("Concerto " + name + " già presente");
+                }
+                resolve(); // Resolve the promise for the current event
+              })
+              .catch(reject); // Reject the promise if there is an error
+          })
+        );
+      }
+    });
+  return {eventsPromises, events};
+}
+
+/**
+ *
+ * @return {Object} events
+ */
+async function scrapeIppodromoConcerts() {
+  console.log("Scraping concerti all'Ippodromo SNAI");
+  const location = "Ippodromo SNAI La Maura";
+  const url = "https://www.livenation.it/venue/1330887/ippodromo-snai-la-maura-tickets";
+  const {data} = await axios.get(url);
+  const $ = cheerio.load(data);
+
+  const events: Event[] = [];
+  const eventsPromises: Promise<void>[] = []; // Array to store Promises
+
+  $(".artistticket")
+    .each((i: any, element: any) => {
+      const name = $(element)
+        .find(".artistticket__name")
+        .text()
+        .trim();
+
+      const scrapedMonth = $(element)
+        .find(".date__month")
+        .text()
+        .trim();
+
+      const scrapedDay = $(element)
+        .find(".date__day")
+        .text()
+        .trim();
+
+      const stringedDate = scrapedDay + " " + scrapedMonth;
+      console.log(stringedDate);
+
+      const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
+      console.log("Trovato: " + name + " " + dateWithoutDay);
+      const date = parse(dateWithoutDay, formatString, new Date(), {
+        locale: it,
+      });
+
+      if (name && date) {
+        eventsPromises.push(
+          new Promise((resolve, reject) => {
+            checkEventExists(name, date)
+              .then((eventExists) => {
+                if (!eventExists) {
+                  if (new Date() > new Date(date)) {
+                    console.log("Evento " + name + " già passato");
                   } else {
                     console.log(
                       "2. Inserimento nuovo concerto " + name + " " + date
