@@ -66,7 +66,13 @@ class ListTileWidget extends StatelessWidget {
                 String title = "$formattedDate - ${data['location']}";
                 String subtitle = data['name'];
 
+                DateTime eventDate = timestamp.toDate();
+                bool isToday = DateTime.now().year == eventDate.year &&
+                             DateTime.now().month == eventDate.month &&
+                             DateTime.now().day == eventDate.day;
+
                 return Card(
+                  color: isToday ? const Color.fromARGB(255, 249, 93, 82) : null,
                   child: ListTile(
                     title: Text(title),
                     subtitle: Text(subtitle),
