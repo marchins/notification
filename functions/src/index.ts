@@ -29,17 +29,23 @@ export const scrapeEvents = functions
         eventsPromises: sanSiroEventsPromises,
         events: sanSiroEvents,
       }: { eventsPromises: Promise<void>[]; events: Event[] } = await scrapeSanSiroConcerts();
+
+      const {
+        eventsPromises: ippodromoLaMauraEventsPromises,
+        events: ippodromoLaMauraEvents,
+      }: { eventsPromises: Promise<void>[]; events: Event[] } = await scrapeIppodromoLaMauraConcerts();
+
       const {
         eventsPromises: ippodromoEventsPromises,
         events: ippodromoEvents,
       }: { eventsPromises: Promise<void>[]; events: Event[] } = await scrapeIppodromoConcerts();
-      console.log(ippodromoEvents.length);
 
       // Wait for all checkEventExists Promises to resolve
       await Promise.all(sanSiroEventsPromises);
+      await Promise.all(ippodromoLaMauraEventsPromises);
       await Promise.all(ippodromoEventsPromises);
 
-      const allEvents = [...sanSiroEvents, ...ippodromoEvents];
+      const allEvents = [...sanSiroEvents, ...ippodromoLaMauraEvents, ...ippodromoEvents];
       const eventsToAdd: Event[] = [];
 
       console.log("3. Ci sono " + allEvents.length + " nuovi concerti");
@@ -151,15 +157,71 @@ async function scrapeSanSiroConcerts() {
  *
  * @return {Object} events
  */
-async function scrapeIppodromoConcerts() {
-  console.log("Scraping concerti all'Ippodromo SNAI");
+async function scrapeIppodromoLaMauraConcerts() {
+  console.log("Scraping concerti all'Ippodromo La Maura");
 
   const events: Event[] = [];
   const eventsPromises: Promise<void>[] = []; // Array to store Promises
 
 
-  const location = "Ippodromo SNAI La Maura";
+  const location = "Ippodromo La Maura";
   const url = "https://www.livenation.it/venue/1330887/ippodromo-snai-la-maura-tickets";
+
+  const {data} = await axios.get(url);
+  const $ = cheerio.load(data);
+
+  $(".artistticket")
+    .each((i: any, element: any) => {
+      const name = $(element)
+        .find(".artistticket__name")
+        .text()
+        .trim();
+
+      const scrapedMonth = $(element)
+        .find(".date__month")
+        .text()
+        .trim();
+
+      const scrapedDay = $(element)
+        .find(".date__day")
+        .text()
+        .trim();
+
+      const stringedDate = scrapedDay + " " + scrapedMonth;
+      const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
+      console.log("Trovato: " + name + " " + dateWithoutDay);
+      const date = parse(dateWithoutDay, formatString, new Date(), {
+        locale: it,
+      });
+
+      if (name && date) {
+        eventsPromises.push(
+          new Promise((resolve, reject) => {
+            events.push({
+              name,
+              date,
+              location,
+            });
+          })
+        );
+      }
+    });
+  return {eventsPromises, events};
+}
+
+/**
+ *
+ * @return {Object} events
+ */
+async function scrapeIppodromoConcerts() {
+  console.log("Scraping concerti all'Ippodromo San Siro");
+
+  const events: Event[] = [];
+  const eventsPromises: Promise<void>[] = []; // Array to store Promises
+
+
+  const location = "Ippodromo San Siro";
+  const url = "https://www.livenation.it/venue/320388/ippodromo-snai-san-siro-tickets";
 
   const {data} = await axios.get(url);
   const $ = cheerio.load(data);
