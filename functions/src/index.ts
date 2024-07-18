@@ -10,6 +10,7 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const collection = db.collection("events");
+const messaging = admin.messaging(); // Initialize Firebase Messaging
 
 const formatString = "d MMMM yyyy";
 
@@ -39,12 +40,28 @@ export const scrapeEvents = functions
       await Promise.all(ippodromoEventsPromises);
 
       const allEvents = [...sanSiroEvents, ...ippodromoEvents];
+      const eventsToAdd: Event[] = [];
 
       console.log("3. Ci sono " + allEvents.length + " nuovi concerti");
 
+
+      for (const event of allEvents) {
+        const eventExists = await checkEventExists(event);
+        if (eventExists === false) {
+          if (new Date() > new Date(event.date)) {
+            console.log("Evento " + event.name + " già passato");
+          } else {
+            console.log(
+              "Inserimento nuovo concerto " + event.name + " " + event.date
+            );
+            eventsToAdd.push(event);
+          }
+        }
+      }
+
       // Salva gli eventi in Firestore
       const batch = db.batch();
-      allEvents.forEach((event) => {
+      eventsToAdd.forEach((event) => {
         batch.set(collection.doc(), event);
       });
       await batch.commit();
@@ -58,15 +75,14 @@ export const scrapeEvents = functions
 
 /**
  *
- * @param {string} name concert name
- * @param {Data} date concert date
+ * @param {Event} event event name
  * @return {boolean} if exists
  */
-async function checkEventExists(name: string, date: Date): Promise<boolean> {
+async function checkEventExists(event: Event): Promise<boolean> {
   try {
     const querySnapshot = await collection
-      .where("name", "==", name)
-      .where("date", "==", date)
+      .where("name", "==", event.name)
+      .where("date", "==", event.date)
       .get();
 
     return !querySnapshot.empty; // Returns true if the event exists
@@ -85,13 +101,15 @@ async function checkEventExists(name: string, date: Date): Promise<boolean> {
  */
 async function scrapeSanSiroConcerts() {
   console.log("Scraping concerti a San Siro");
-  const location = "Stadio San Siro";
-  const url = "https://www.sansirostadium.com/live/I-grandi-concerti-di-San-Siro";
-  const {data} = await axios.get(url);
-  const $ = cheerio.load(data);
 
   const events: Event[] = [];
   const eventsPromises: Promise<void>[] = []; // Array to store Promises
+
+  const location = "Stadio San Siro";
+  const url = "https://www.sansirostadium.com/live/I-grandi-concerti-di-San-Siro";
+
+  const {data} = await axios.get(url);
+  const $ = cheerio.load(data);
 
   $(".container")
     .find(".row.row0.row-eq-height")
@@ -117,27 +135,11 @@ async function scrapeSanSiroConcerts() {
       if (name && date) {
         eventsPromises.push(
           new Promise((resolve, reject) => {
-            checkEventExists(name, date)
-              .then((eventExists) => {
-                if (!eventExists) {
-                  if (new Date() > new Date(date)) {
-                    console.log("Evento " + name + " già passato");
-                  } else {
-                    console.log(
-                      "Inserimento nuovo concerto " + name + " " + date
-                    );
-                    events.push({
-                      name,
-                      date,
-                      location,
-                    });
-                  }
-                } else {
-                  console.log("Concerto " + name + " già presente");
-                }
-                resolve(); // Resolve the promise for the current event
-              })
-              .catch(reject); // Reject the promise if there is an error
+            events.push({
+              name,
+              date,
+              location,
+            });
           })
         );
       }
@@ -151,13 +153,16 @@ async function scrapeSanSiroConcerts() {
  */
 async function scrapeIppodromoConcerts() {
   console.log("Scraping concerti all'Ippodromo SNAI");
-  const location = "Ippodromo SNAI La Maura";
-  const url = "https://www.livenation.it/venue/1330887/ippodromo-snai-la-maura-tickets";
-  const {data} = await axios.get(url);
-  const $ = cheerio.load(data);
 
   const events: Event[] = [];
   const eventsPromises: Promise<void>[] = []; // Array to store Promises
+
+
+  const location = "Ippodromo SNAI La Maura";
+  const url = "https://www.livenation.it/venue/1330887/ippodromo-snai-la-maura-tickets";
+
+  const {data} = await axios.get(url);
+  const $ = cheerio.load(data);
 
   $(".artistticket")
     .each((i: any, element: any) => {
@@ -177,8 +182,6 @@ async function scrapeIppodromoConcerts() {
         .trim();
 
       const stringedDate = scrapedDay + " " + scrapedMonth;
-      console.log(stringedDate);
-
       const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
       console.log("Trovato: " + name + " " + dateWithoutDay);
       const date = parse(dateWithoutDay, formatString, new Date(), {
@@ -188,30 +191,63 @@ async function scrapeIppodromoConcerts() {
       if (name && date) {
         eventsPromises.push(
           new Promise((resolve, reject) => {
-            checkEventExists(name, date)
-              .then((eventExists) => {
-                if (!eventExists) {
-                  if (new Date() > new Date(date)) {
-                    console.log("Evento " + name + " già passato");
-                  } else {
-                    console.log(
-                      "2. Inserimento nuovo concerto " + name + " " + date
-                    );
-                    events.push({
-                      name,
-                      date,
-                      location,
-                    });
-                  }
-                } else {
-                  console.log("2. Concerto " + name + " già presente");
-                }
-                resolve(); // Resolve the promise for the current event
-              })
-              .catch(reject); // Reject the promise if there is an error
+            events.push({
+              name,
+              date,
+              location,
+            });
           })
         );
       }
     });
   return {eventsPromises, events};
 }
+
+export const scheduleNotification = functions
+  .region("europe-west1")
+  .https
+  .onRequest((req, resp) => {
+    const data = req.body;
+    const cronExpression = data.cronExpression; // Extract cron expression from data
+    const eventBody = data.eventDate;
+    const eventTitle = data.eventTitle;
+
+    // ... (Rest of your code to get tokens and prepare the notification) ...
+    console.log("SCHEDULE");
+
+    // Schedule the notification using the provided cron expression
+    const scheduledFunction = functions
+      .region("europe-west1") // Choose your region
+      .pubsub.schedule(cronExpression) // Use the provided cronExpression
+      .onRun(async (context) => {
+        console.log("RUN");
+        // ... (Send the notification using messaging.send(message)) ...
+        const tokens: string[] = []; // Array to store FCM tokens (get from your database)
+
+        // Get user tokens from your database
+        const snapshot = await db.collection("fcmTokens").get();
+        snapshot.forEach((doc) => {
+          tokens.push(doc.data().token); // Assuming you have an 'fcmToken' field
+        });
+
+        // Prepare the notification payload
+        const message = {
+          notification: {
+            title: eventTitle,
+            body: eventBody,
+          },
+          tokens, // Send to the FCM tokens you collected
+          condition: "",
+        };
+
+        try {
+          const response = await messaging.send(message);
+          console.log("Successfully sent message:", response);
+        } catch (error) {
+          console.error("Error sending message:", error);
+        }
+      });
+
+    console.log(scheduledFunction.name);
+    resp.send("OK");
+  });

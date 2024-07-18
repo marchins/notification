@@ -9,7 +9,7 @@ npm run lint -- --fix
 
 ## Functions
 firebase deploy --only functions
-
+firebase deploy --only functions:scheduleNotification
 
 ## App
 # Android
