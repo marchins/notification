@@ -20,36 +20,36 @@ interface Event {
   location: string;
 }
 
+type ScrapingFunction = () => Promise<{ eventsPromises: Promise<void>[]; events: Event[] }>;
+
+// Create a list of scraping functions
+const scrapingFunctions: ScrapingFunction[] = [
+  scrapeSanSiroConcerts,
+  scrapeIppodromoLaMauraConcerts,
+  scrapeIppodromoConcerts,
+];
+
 export const scrapeEvents = functions
   .region("europe-west1")
   .pubsub.schedule("every 24 hours")
   .onRun(async (context) => {
     try {
-      const {
-        eventsPromises: sanSiroEventsPromises,
-        events: sanSiroEvents,
-      }: { eventsPromises: Promise<void>[]; events: Event[] } = await scrapeSanSiroConcerts();
+      const allEvents: Event[] = [];
 
-      const {
-        eventsPromises: ippodromoLaMauraEventsPromises,
-        events: ippodromoLaMauraEvents,
-      }: { eventsPromises: Promise<void>[]; events: Event[] } = await scrapeIppodromoLaMauraConcerts();
+      // Iterate through each scraping function
+      for (const scrapeFunction of scrapingFunctions) {
+        // Call the scraping function and get the results
+        const {eventsPromises, events} = await scrapeFunction();
 
-      const {
-        eventsPromises: ippodromoEventsPromises,
-        events: ippodromoEvents,
-      }: { eventsPromises: Promise<void>[]; events: Event[] } = await scrapeIppodromoConcerts();
+        // Wait for all promises to resolve
+        await Promise.all(eventsPromises);
 
-      // Wait for all checkEventExists Promises to resolve
-      await Promise.all(sanSiroEventsPromises);
-      await Promise.all(ippodromoLaMauraEventsPromises);
-      await Promise.all(ippodromoEventsPromises);
-
-      const allEvents = [...sanSiroEvents, ...ippodromoLaMauraEvents, ...ippodromoEvents];
-      const eventsToAdd: Event[] = [];
+        // Add the scraped events to the allEvents array
+        allEvents.push(...events);
+      }
 
       console.log("3. Ci sono " + allEvents.length + " nuovi concerti");
-
+      const eventsToAdd: Event[] = [];
 
       for (const event of allEvents) {
         const eventExists = await checkEventExists(event);
