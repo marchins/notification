@@ -11,7 +11,7 @@ const messaging = admin.messaging(); // Initialize Firebase Messaging
 export const scheduleNotification = functions
   .region("europe-west1") // Choose your region
   // Here's where we accept the cron expression as an argument
-  .https.onCall((data, context) => {
+  .https.onCall((data) => {
     const cronExpression = data.cronExpression; // Extract cron expression from data
     const eventBody = data.eventDate;
     const eventTitle = data.eventTitle;
@@ -22,7 +22,7 @@ export const scheduleNotification = functions
     const scheduledFunction = functions
       .region("europe-west1") // Choose your region
       .pubsub.schedule(cronExpression) // Use the provided cronExpression
-      .onRun(async (context) => {
+      .onRun(async () => {
         // ... (Send the notification using messaging.send(message)) ...
         const tokens: string[] = []; // Array to store FCM tokens (get from your database)
 

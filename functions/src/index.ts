@@ -31,7 +31,7 @@ const runtimeOpts = {
  * @param {String} location venue
  * @return {Event[]} events
  */
-function parseEvents(html: any, location: string): Event[] {
+function parseEvents(html: cheerio.Element, location: string): Event[] {
   const $ = cheerio.load(html);
   const events: Event[] = [];
 
@@ -64,7 +64,7 @@ function parseEvents(html: any, location: string): Event[] {
             name,
             date,
             location,
-            createdOn
+            createdOn,
           });
         }
       });
@@ -97,7 +97,7 @@ function parseEvents(html: any, location: string): Event[] {
           name,
           date,
           location,
-          createdOn
+          createdOn,
         });
       }
     });
@@ -150,7 +150,7 @@ export const scrapeEvents = functions
   .region("europe-west1")
   .runWith(runtimeOpts)
   .pubsub.schedule("every 24 hours")
-  .onRun(async (context) => {
+  .onRun(async () => {
     try {
       // 1. Fetch data from all websites concurrently
       const [sanSiroData, laMauraData, ippodromoData] = await Promise.all([
@@ -174,6 +174,7 @@ export const scrapeEvents = functions
       if (eventsToAdd.length > 0) {
         const batch = db.batch();
         eventsToAdd.forEach((event) => {
+          console.log(event.date + " " + event.name);
           batch.set(collection.doc(), event);
         });
         await batch.commit();
