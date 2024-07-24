@@ -49,57 +49,77 @@ class ListTileWidget extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: firestoreService.getEvents(),
         builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return const Center(child: Text('Errore nel caricamento dei dati.'));
+          } else if (snapshot.hasData) {
             List eventsList = snapshot.data!.docs;
             eventsList.sort((a, b) => a.data()['date'].compareTo(b.data()['date']));
             eventsList.removeWhere((element) => isBeforeToday(element.data()['date']));
             
-            return ListView.builder(
-              itemCount: eventsList.length,
-              itemBuilder: (context, index) {
-                DocumentSnapshot doc = eventsList[index];
-                //String docID = doc.id;
-                Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-                Timestamp timestamp = data['date'];
-                String formattedDate = formatter.format(timestamp.toDate());
-                String title = "$formattedDate - ${data['location']}";
-                String subtitle = data['name'];
+            if (eventsList.isNotEmpty) {
+              return ListView.builder(
+                itemCount: eventsList.length,
+                itemBuilder: (context, index) {
+                  DocumentSnapshot doc = eventsList[index];
+                  Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+                  Timestamp timestamp = data['date'];
+                  String formattedDate = formatter.format(timestamp.toDate());
+                  String title = "$formattedDate - ${data['location']}";
+                  String subtitle = data['name'];
 
-                DateTime eventDate = timestamp.toDate();
-                bool isToday = DateTime.now().year == eventDate.year &&
-                             DateTime.now().month == eventDate.month &&
-                             DateTime.now().day == eventDate.day;
+                  DateTime eventDate = timestamp.toDate();
+                  bool isToday = DateTime.now().year == eventDate.year &&
+                               DateTime.now().month == eventDate.month &&
+                               DateTime.now().day == eventDate.day;
 
-                Duration difference = eventDate.difference(DateTime.now());
+                  Duration difference = eventDate.difference(DateTime.now());
 
-                return Card(
-                  color: isToday ? Color.fromARGB(255, 253, 55, 41) : null,
-                  child: Column(
-                    children: <Widget>[
-                      ListTile(
-                        title: Text(title),
-                        subtitle: Text(subtitle),
-                        leading: Icon(Icons.event),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        
-                        children: <Widget>[
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(difference.inDays > 0 ? "Tra ${difference.inDays} giorni" : "Oggi")
-                          )
-                        ],
-                      ),
-                    ],
+                  return Card(
+                    color: isToday ? const Color.fromARGB(255, 253, 55, 41) : null,
+                    child: Column(
+                      children: <Widget>[
+                        ListTile(
+                          title: Text(title),
+                          subtitle: Text(subtitle),
+                          leading: const Icon(Icons.event),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: <Widget>[
+                            Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(difference.inDays > 0 ? "Tra ${difference.inDays} giorni" : "Oggi")
+                            )
+                          ],
+                        ),
+                      ],
+                    )
+                  );
+                },
+              );
+            } else {
+              return const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Align(
+                    alignment: Alignment.center,
+                    child: Text("Non ci sono eventi"),
                   )
-                );
-              },
+                ),
+              );
+            }
+          } else {
+            return const Card(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Align(
+                  alignment: Alignment.center,
+                  child: Text("Non ci sono eventi"),
+                )
+              ),
             );
-          }
-          else {
-            return const Text("NO DATA");
           }
         },
       )
