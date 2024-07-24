@@ -1,6 +1,6 @@
-# notification
+# San Siro Events Alert
 
-mobile app for ios and android that shows upcoming events (football matches and concerts) at locations in Milano San Siro area:  
+Mobile app for iOS and Android that shows upcoming events (football matches and concerts) at locations in Milano San Siro area:  
 San Siro Stadium  
 Ippodromo La Maura  
 Ippordomo San Siro  
