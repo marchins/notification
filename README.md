@@ -1,10 +1,10 @@
 # San Siro Events Alert
 
 Mobile app for iOS and Android that shows upcoming events (football matches and concerts) at locations in Milano San Siro area:  
-San Siro Stadium  
-Ippodromo La Maura  
-Ippordomo San Siro  
-Push notification the day before the event alerts the users  
+- San Siro Stadium  
+- Ippodromo La Maura  
+- Ippodromo San Siro  
+Push notification system allows the users to be warned the day before the event  
 
 ## Getting started
 nvm use 20  
@@ -16,7 +16,7 @@ firebase deploy --only functions
 firebase deploy --only functions:scheduleNotification  
 
 ## App
-# Android
+## Android
 flutter build apk --release  
-# iOS 
+### iOS 
 flutter build ios  
