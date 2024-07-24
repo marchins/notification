@@ -44,7 +44,7 @@ class ListTileWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prossimi eventi'),
+        title: const Text('Prossimi eventi in zona'),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: firestoreService.getEvents(),
@@ -105,7 +105,7 @@ class ListTileWidget extends StatelessWidget {
                   padding: EdgeInsets.all(16.0),
                   child: Align(
                     alignment: Alignment.center,
-                    child: Text("Non ci sono eventi"),
+                    child: Text("Non ci sono eventi per adesso :)"),
                   )
                 ),
               );
