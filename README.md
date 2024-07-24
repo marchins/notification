@@ -3,9 +3,9 @@
 Notifiche su partite e concerti zona San Siro (Stadio e Ippodromo La Maura)
 
 ## Getting started
-nvm use 20__
-npm run lint__
-npm run lint -- --fix__
+nvm use 20  
+npm run lint  
+npm run lint -- --fix  
 
 ## Functions
 firebase deploy --only functions
