@@ -16,7 +16,7 @@ firebase deploy --only functions
 firebase deploy --only functions:scheduleNotification  
 
 ## App
-## Android
+### Android
 flutter build apk --release  
 ### iOS 
 flutter build ios  
