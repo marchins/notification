@@ -4,7 +4,11 @@ Mobile app for iOS and Android that shows upcoming events (football matches and 
 - San Siro Stadium  
 - Ippodromo La Maura  
 - Ippodromo San Siro  
+
+## Backend
+Firebase Firestore and FCM Push Notifications  
 Push notification system allows the users to be warned the day before the event  
+Scheduled Cloud function scrapes location's websites looking for new events using cheerio  
 
 ## Getting started
 nvm use 20  
