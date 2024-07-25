@@ -63,7 +63,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '884260821161',
     projectId: 'pillo-8a941',
     storageBucket: 'pillo-8a941.appspot.com',
-    iosBundleId: 'com.example.notification',
+    iosBundleId: 'com.marchins.sansiroevents',
   );
 
 }
