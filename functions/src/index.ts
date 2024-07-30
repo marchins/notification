@@ -5,6 +5,8 @@ import axios from "axios";
 import * as cheerio from "cheerio";
 import {parse} from "date-fns";
 import {it} from "date-fns/locale";
+import {MulticastMessage} from "firebase-admin/lib/messaging/messaging-api";
+
 
 admin.initializeApp();
 
@@ -185,5 +187,42 @@ export const scrapeEvents = functions
     } catch (error) {
       console.error("Error scraping events:", error);
       throw new functions.https.HttpsError("internal", "Error scraping events");
+    }
+  });
+
+export const pushNotification = functions
+  .region("europe-west1")
+  .runWith(runtimeOpts)
+  .pubsub.schedule("0 0 6 ? * * *")
+  .onRun(async () => {
+    const allTokens = await admin.firestore().collection("fcmTokens").get();
+    const tokens:string[] = [];
+    allTokens.forEach((token) => {
+      tokens.push(token.id);
+    });
+
+    const message: MulticastMessage = {
+      notification: {
+        title: "TEST TITLE",
+        body: "TEST BODY",
+      },
+      tokens: tokens,
+    };
+
+    if (tokens.length > 0) {
+      await admin.messaging().sendEachForMulticast(message, false).then((response) => {
+        if (response.failureCount > 0) {
+          const failedTokens:string[] = [];
+          response.responses.forEach((resp, idx) => {
+            if (!resp.success) {
+              failedTokens.push(tokens[idx]);
+            }
+          });
+          console.log("List of tokens that caused failures: " + failedTokens);
+        }
+        return;
+      }).catch((error) => {
+        console.log("Error sending multicast notification:", error);
+      });
     }
   });
