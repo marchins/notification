@@ -6,7 +6,7 @@
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
-    "start": "npm run shell",
+    "start": "functions-framework --target=pushNotification",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "debug": "node --inspect node_modules/.bin/functions-framework --source=src/ --target=index"
