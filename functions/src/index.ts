@@ -6,6 +6,7 @@ import * as cheerio from "cheerio";
 import {parse} from "date-fns";
 import {it} from "date-fns/locale";
 import {MulticastMessage} from "firebase-admin/lib/messaging/messaging-api";
+import {QueryDocumentSnapshot} from "firebase-functions/v1/firestore";
 
 
 admin.initializeApp();
@@ -193,7 +194,7 @@ export const scrapeEvents = functions
 export const pushNotification = functions
   .region("europe-west1")
   .runWith(runtimeOpts)
-  .pubsub.schedule("0 0 6 ? * * *")
+  .pubsub.schedule("every day 06:00")
   .onRun(async () => {
     const allTokens = await admin.firestore().collection("fcmTokens").get();
     const tokens:string[] = [];
@@ -201,28 +202,72 @@ export const pushNotification = functions
       tokens.push(token.id);
     });
 
-    const message: MulticastMessage = {
-      notification: {
-        title: "TEST TITLE",
-        body: "TEST BODY",
-      },
-      tokens: tokens,
-    };
+    const events = await queryTodayEvents();
 
-    if (tokens.length > 0) {
-      await admin.messaging().sendEachForMulticast(message, false).then((response) => {
-        if (response.failureCount > 0) {
-          const failedTokens:string[] = [];
-          response.responses.forEach((resp, idx) => {
-            if (!resp.success) {
-              failedTokens.push(tokens[idx]);
-            }
-          });
-          console.log("List of tokens that caused failures: " + failedTokens);
-        }
-        return;
-      }).catch((error) => {
-        console.log("Error sending multicast notification:", error);
-      });
+    if (events.length > 0) {
+      const firstEvent = events[0];
+      const firstEventName = firstEvent.get("name");
+      const firstEventLocation = firstEvent.get("location");
+      const numberOfOtherEvents = events.length-1;
+
+      const notificationTitle = events.length > 1 ? firstEventName + " e altri " + numberOfOtherEvents + " eventi" : firstEventName;
+      const notificationBody = events.length > 1 ? firstEventLocation + " e altre locations" : firstEventLocation;
+
+      const message: MulticastMessage = {
+        notification: {
+          title: "OGGI " + notificationTitle,
+          body: notificationBody,
+        },
+        tokens: tokens,
+      };
+
+      if (tokens.length > 0) {
+        await admin.messaging().sendEachForMulticast(message, false).then((response) => {
+          if (response.failureCount > 0) {
+            const failedTokens:string[] = [];
+            response.responses.forEach((resp, idx) => {
+              if (!resp.success) {
+                failedTokens.push(tokens[idx]);
+              }
+            });
+            console.log("List of tokens that caused failures: " + failedTokens);
+          }
+          return;
+        }).catch((error) => {
+          console.log("Error sending multicast notification:", error);
+        });
+      }
+    } else {
+      console.log("No events found for today");
     }
   });
+
+/**
+ *
+ * @param {Event} event event
+ * @return {boolean} if exists
+ */
+async function queryTodayEvents(): Promise<Array<QueryDocumentSnapshot>> {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  console.log(start);
+
+  const end = new Date(start.getTime());
+  end.setHours(23, 59, 59, 999);
+  console.log(end);
+
+  try {
+    const querySnapshot = await collection
+      .where("date", ">=", start)
+      .where("date", "<=", end)
+      .get();
+
+    return querySnapshot.docs;
+  } catch (error) {
+    console.error("Error checking event existence:", error);
+    throw new functions.https.HttpsError(
+      "internal",
+      "Error checking event existence"
+    );
+  }
+}
