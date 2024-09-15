@@ -18,8 +18,9 @@ npm run lint
 npm run lint -- --fix  
 
 ## Functions
-firebase deploy --only functions  
-firebase deploy --only functions:scheduleNotification  
+firebase deploy --only functions
+firebase deploy --only functions:scrapeEvents
+firebase deploy --only functions:pushNotification
 
 ## App
 ### Android
