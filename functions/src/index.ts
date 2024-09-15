@@ -119,8 +119,11 @@ async function filterNewEvents(allEvents: Event[]): Promise<Event[]> {
 
   for (const event of allEvents) {
     const eventExists = await checkEventExists(event);
-    if (!eventExists && new Date() < new Date(event.date)) {
+    if (!eventExists) {
+      console.log("new event " + event.name + " will be created");
       eventsToAdd.push(event);
+    } else {
+      console.log("event " + event.name + " already saved");
     }
   }
 
@@ -133,12 +136,12 @@ async function filterNewEvents(allEvents: Event[]): Promise<Event[]> {
  * @return {boolean} if exists
  */
 async function checkEventExists(event: Event): Promise<boolean> {
+  const eventDate = new Date(event.date);
   try {
     const querySnapshot = await collection
-      .where("name", "==", event.name)
-      .where("date", "==", event.date)
+      .where("date", "==", eventDate)
+      .where("location", "==", event.location)
       .get();
-
     return !querySnapshot.empty; // Returns true if the event exists
   } catch (error) {
     console.error("Error checking event existence:", error);
