@@ -23,6 +23,7 @@ interface Event {
   date: Date;
   location: string;
   createdOn: Date;
+  externalId: string;
 }
 
 const runtimeOpts = {
@@ -43,16 +44,16 @@ export const scrapeEvents = functions
       // 1. Fetch data from all websites concurrently
       const [sanSirostadiumData, livenationLaMauraData, livenationIppodromoData, sansiroparcheggiData] = await Promise.all([
         axios.get(sanSiroStadiumConcertsUrl),
+        axios.get(sanSiroParcheggiUrl),
         axios.get(liveNationIppodromoLaMauraUrl),
         axios.get(liveNationIppodromoSanSiroUrl),
-        axios.get(sanSiroParcheggiUrl),
       ]);
 
       // 2. Parse data from all responses
-      const sanSirostadiumEvents = scrapeEventsFromSource(sanSirostadiumData.data, "Stadio San Siro");
+      const sanSirostadiumEvents = scrapeEventsFromSansiroStadium(sanSirostadiumData.data, "Stadio San Siro");
       const sanSiroParcheggiEvents = scrapeEventsFromSanSiroParcheggiSource(sansiroparcheggiData.data, "Stadio San Siro", sanSiroParcheggiUrl);
-      const livenationLaMauraEvents = scrapeEventsFromSource(livenationLaMauraData.data, "Ippodromo La Maura");
-      const livenationIppodromoEvents = scrapeEventsFromSource(livenationIppodromoData.data, "Ippodromo San Siro");
+      const livenationLaMauraEvents = scrapeEventsFromLiveNation(livenationLaMauraData.data, "Ippodromo La Maura");
+      const livenationIppodromoEvents = scrapeEventsFromLiveNation(livenationIppodromoData.data, "Ippodromo San Siro");
 
       // 3. Combine all scraped events
       const allEvents = [...sanSirostadiumEvents, ...livenationLaMauraEvents, ...livenationIppodromoEvents, ...sanSiroParcheggiEvents];
@@ -84,66 +85,80 @@ export const scrapeEvents = functions
  * @param {String} location venue
  * @return {Event[]} events
  */
-function scrapeEventsFromSource(html: cheerio.Element, location: string): Event[] {
+function scrapeEventsFromLiveNation(
+  html: cheerio.Element,
+  location: string
+): Event[] {
   const $ = cheerio.load(html);
   const events: Event[] = [];
 
   const createdOn: Date = new Date();
 
-  // San Siro specific selectors
-  if (location === "Stadio San Siro") {
-    $(".container")
-      .find(".row.row0.row-eq-height")
-      .each((i, element) => {
-        const name = $(element)
-          .find(".boxNota")
-          .find(".titolo.alignTextCenter div")
-          .text()
-          .trim();
+  // Livenation.it specific selectors
+  $(".artistticket").each((i, element) => {
+    const name = $(element).find(".artistticket__name").text().trim();
 
-        const stringedDate = $(element)
-          .find(".boxNota")
-          .find(".titolo span.uppercase")
-          .text()
-          .trim();
+    const scrapedMonth = $(element).find(".date__month").text().trim();
 
-        const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
-        const date = parse(dateWithoutDay, formatString, new Date(), {
-          locale: it,
-        });
+    const scrapedDay = $(element).find(".date__day").text().trim();
 
-        if (name && date) {
-          events.push({
-            name,
-            date,
-            location,
-            createdOn,
-          });
-        }
+    const stringedDate = scrapedDay + " " + scrapedMonth;
+    const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
+    const date = parse(dateWithoutDay, formatString, new Date(), {
+      locale: it,
+    });
+
+    const externalId = "";
+    if (name && date) {
+      events.push({
+        name,
+        date,
+        location,
+        createdOn,
+        externalId,
       });
-  } else {
-    // Livenation.it specific selectors
-    $(".artistticket").each((i, element) => {
+    }
+  });
+
+  return events;
+}
+
+/**
+ *
+ * @param {Object} html page
+ * @param {String} location venue
+ * @return {Event[]} events
+ */
+function scrapeEventsFromSansiroStadium(
+  html: cheerio.Element,
+  location: string
+): Event[] {
+  const $ = cheerio.load(html);
+  const events: Event[] = [];
+
+  const createdOn: Date = new Date();
+
+  $(".container")
+    .find(".row.row0.row-eq-height")
+    .each((i, element) => {
       const name = $(element)
-        .find(".artistticket__name")
+        .find(".boxNota")
+        .find(".titolo.alignTextCenter div")
         .text()
         .trim();
 
-      const scrapedMonth = $(element)
-        .find(".date__month")
+      const stringedDate = $(element)
+        .find(".boxNota")
+        .find(".titolo span.uppercase")
         .text()
         .trim();
 
-      const scrapedDay = $(element)
-        .find(".date__day")
-        .text()
-        .trim();
-
-      const stringedDate = scrapedDay + " " + scrapedMonth;
       const dateWithoutDay = stringedDate.replace(/^[a-zA-ZàèìòùÀÈÌÒÙ]+\s/, "");
       const date = parse(dateWithoutDay, formatString, new Date(), {
         locale: it,
       });
+
+      const externalId = "";
 
       if (name && date) {
         events.push({
@@ -151,10 +166,10 @@ function scrapeEventsFromSource(html: cheerio.Element, location: string): Event[
           date,
           location,
           createdOn,
+          externalId,
         });
       }
     });
-  }
 
   return events;
 }
@@ -166,44 +181,57 @@ function scrapeEventsFromSource(html: cheerio.Element, location: string): Event[
  * @param {string} pageUrl page URL to scrape
  * @return {Event[]} events
  */
-function scrapeEventsFromSanSiroParcheggiSource(payload: any, location: string, pageUrl: string): Event[] {
+function scrapeEventsFromSanSiroParcheggiSource(
+  payload: any,
+  location: string,
+  pageUrl: string
+): Event[] {
   const events: Event[] = [];
   console.log("scraping " + pageUrl);
 
-  payload.forEach((event: { Id: any; Description: string; PlaceEventDescr: any; Time: string, IdParkings: any}) => {
-    const externalEventId = event.Id;
-    console.log("externalEventId " + externalEventId);
+  payload.forEach(
+    (event: {
+      Id: any;
+      Description: string;
+      PlaceEventDescr: any;
+      Time: string;
+      IdParkings: any;
+    }) => {
+      const externalId = event.Id;
+      console.log("externalEventId " + externalId);
 
-    const name = event.Description;
-    console.log("name " + name);
+      const name = event.Description;
+      console.log("name " + name);
 
-    const location = event.PlaceEventDescr;
-    console.log("location " + location);
+      const location = event.PlaceEventDescr;
+      console.log("location " + location);
 
-    const time = event.Time;
-    console.log("time " + time);
+      const time = event.Time;
+      console.log("time " + time);
 
-    const createdOn: Date = new Date();
-    const rawDate = event.IdParkings[0].FromDate;
-    const parsedDate = rawDate.substring(0, rawDate.indexOf("T"));
-    const stringedDate = parsedDate + "T" + time;
-    console.log("stringedDate " + stringedDate);
-    const date = parse(stringedDate, dateFormat, new Date(), {
-      locale: it,
-    });
-
-    console.log("createdOn " + createdOn);
-    console.log("date " + date);
-
-    if (name && date) {
-      events.push({
-        name,
-        date,
-        location,
-        createdOn,
+      const createdOn: Date = new Date();
+      const rawDate = event.IdParkings[0].FromDate;
+      const parsedDate = rawDate.substring(0, rawDate.indexOf("T"));
+      const stringedDate = parsedDate + "T" + time;
+      console.log("stringedDate " + stringedDate);
+      const date = parse(stringedDate, dateFormat, new Date(), {
+        locale: it,
       });
+
+      console.log("createdOn " + createdOn);
+      console.log("date " + date);
+
+      if (name && date) {
+        events.push({
+          name,
+          date,
+          location,
+          createdOn,
+          externalId,
+        });
+      }
     }
-  });
+  );
 
   console.log(payload.length);
   return events;
@@ -252,7 +280,6 @@ async function checkEventExists(event: Event): Promise<boolean> {
   }
 }
 
-
 export const pushNotification = functions
   .region("europe-west1")
   .runWith(runtimeOpts)
@@ -270,7 +297,7 @@ export const pushNotification = functions
       const firstEvent = events[0];
       const firstEventName = firstEvent.get("name");
       const firstEventLocation = firstEvent.get("location");
-      const numberOfOtherEvents = events.length-1;
+      const numberOfOtherEvents = events.length - 1;
 
       const notificationTitle = events.length > 1 ? firstEventName + " e altri " + numberOfOtherEvents + " eventi" : firstEventName;
       const notificationBody = events.length > 1 ? firstEventLocation + " e altre locations" : firstEventLocation;
