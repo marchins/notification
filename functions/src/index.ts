@@ -16,6 +16,7 @@ const collection = db.collection("events");
 // const messaging = admin.messaging(); // Initialize Firebase Messaging
 
 const formatString = "d MMMM yyyy";
+const dateFormat = "yyyy-MM-dd'T'HH:mm:ss";
 
 interface Event {
   name: string;
@@ -28,13 +29,62 @@ const runtimeOpts = {
   timeoutSeconds: 300, // Increased timeout
 };
 
+export const scrapeEvents = functions
+  .region("europe-west1")
+  .runWith(runtimeOpts)
+  .pubsub.schedule("every 24 hours")
+  .onRun(async () => {
+    try {
+      const sanSiroStadiumConcertsUrl = "https://www.sansirostadium.com/live/I-grandi-concerti-di-San-Siro";
+      const liveNationIppodromoLaMauraUrl = "https://www.livenation.it/venue/1330887/ippodromo-snai-la-maura-tickets";
+      const liveNationIppodromoSanSiroUrl = "https://www.livenation.it/venue/320388/ippodromo-snai-san-siro-tickets";
+      const sanSiroParcheggiUrl = "https://webapi.easypark24.com/api/Event/GetEvent?ListParkings=1123&ListParkings=1130";
+
+      // 1. Fetch data from all websites concurrently
+      const [sanSirostadiumData, livenationLaMauraData, livenationIppodromoData, sansiroparcheggiData] = await Promise.all([
+        axios.get(sanSiroStadiumConcertsUrl),
+        axios.get(liveNationIppodromoLaMauraUrl),
+        axios.get(liveNationIppodromoSanSiroUrl),
+        axios.get(sanSiroParcheggiUrl),
+      ]);
+
+      // 2. Parse data from all responses
+      const sanSirostadiumEvents = scrapeEventsFromSource(sanSirostadiumData.data, "Stadio San Siro");
+      const sanSiroParcheggiEvents = scrapeEventsFromSanSiroParcheggiSource(sansiroparcheggiData.data, "Stadio San Siro", sanSiroParcheggiUrl);
+      const livenationLaMauraEvents = scrapeEventsFromSource(livenationLaMauraData.data, "Ippodromo La Maura");
+      const livenationIppodromoEvents = scrapeEventsFromSource(livenationIppodromoData.data, "Ippodromo San Siro");
+
+      // 3. Combine all scraped events
+      const allEvents = [...sanSirostadiumEvents, ...livenationLaMauraEvents, ...livenationIppodromoEvents, ...sanSiroParcheggiEvents];
+
+      // 4. Check for existing events and filter new events
+      const eventsToAdd = await filterNewEvents(allEvents);
+
+      // 5. Save new events to Firestore in a batch
+      if (eventsToAdd.length > 0) {
+        const batch = db.batch();
+        eventsToAdd.forEach((event) => {
+          console.log(event.date + " " + event.name);
+          batch.set(collection.doc(), event);
+        });
+        await batch.commit();
+      }
+
+      console.log("Scraped and saved", eventsToAdd.length, "new events.");
+      return null;
+    } catch (error) {
+      console.error("Error scraping events:", error);
+      throw new functions.https.HttpsError("internal", "Error scraping events");
+    }
+  });
+
 /**
  *
  * @param {Object} html page
  * @param {String} location venue
  * @return {Event[]} events
  */
-function parseEvents(html: cheerio.Element, location: string): Event[] {
+function scrapeEventsFromSource(html: cheerio.Element, location: string): Event[] {
   const $ = cheerio.load(html);
   const events: Event[] = [];
 
@@ -111,6 +161,56 @@ function parseEvents(html: cheerio.Element, location: string): Event[] {
 
 /**
  *
+ * @param {Object} payload api response
+ * @param {String} location venue
+ * @param {string} pageUrl page URL to scrape
+ * @return {Event[]} events
+ */
+function scrapeEventsFromSanSiroParcheggiSource(payload: any, location: string, pageUrl: string): Event[] {
+  const events: Event[] = [];
+  console.log("scraping " + pageUrl);
+
+  payload.forEach((event: { Id: any; Description: string; PlaceEventDescr: any; Time: string, IdParkings: any}) => {
+    const externalEventId = event.Id;
+    console.log("externalEventId " + externalEventId);
+
+    const name = event.Description;
+    console.log("name " + name);
+
+    const location = event.PlaceEventDescr;
+    console.log("location " + location);
+
+    const time = event.Time;
+    console.log("time " + time);
+
+    const createdOn: Date = new Date();
+    const rawDate = event.IdParkings[0].FromDate;
+    const parsedDate = rawDate.substring(0, rawDate.indexOf("T"));
+    const stringedDate = parsedDate + "T" + time;
+    console.log("stringedDate " + stringedDate);
+    const date = parse(stringedDate, dateFormat, new Date(), {
+      locale: it,
+    });
+
+    console.log("createdOn " + createdOn);
+    console.log("date " + date);
+
+    if (name && date) {
+      events.push({
+        name,
+        date,
+        location,
+        createdOn,
+      });
+    }
+  });
+
+  console.log(payload.length);
+  return events;
+}
+
+/**
+ *
  * @param {Event[]} allEvents all events
  * @return {Object} events
  */
@@ -152,47 +252,6 @@ async function checkEventExists(event: Event): Promise<boolean> {
   }
 }
 
-export const scrapeEvents = functions
-  .region("europe-west1")
-  .runWith(runtimeOpts)
-  .pubsub.schedule("every 24 hours")
-  .onRun(async () => {
-    try {
-      // 1. Fetch data from all websites concurrently
-      const [sanSiroData, laMauraData, ippodromoData] = await Promise.all([
-        axios.get("https://www.sansirostadium.com/live/I-grandi-concerti-di-San-Siro"),
-        axios.get("https://www.livenation.it/venue/1330887/ippodromo-snai-la-maura-tickets"),
-        axios.get("https://www.livenation.it/venue/320388/ippodromo-snai-san-siro-tickets"),
-      ]);
-
-      // 2. Parse data from all responses
-      const sanSiroEvents = parseEvents(sanSiroData.data, "Stadio San Siro");
-      const laMauraEvents = parseEvents(laMauraData.data, "Ippodromo La Maura");
-      const ippodromoEvents = parseEvents(ippodromoData.data, "Ippodromo San Siro");
-
-      // 3. Combine all scraped events
-      const allEvents = [...sanSiroEvents, ...laMauraEvents, ...ippodromoEvents];
-
-      // 4. Check for existing events and filter new events
-      const eventsToAdd = await filterNewEvents(allEvents);
-
-      // 5. Save new events to Firestore in a batch
-      if (eventsToAdd.length > 0) {
-        const batch = db.batch();
-        eventsToAdd.forEach((event) => {
-          console.log(event.date + " " + event.name);
-          batch.set(collection.doc(), event);
-        });
-        await batch.commit();
-      }
-
-      console.log("Scraped and saved", eventsToAdd.length, "new events.");
-      return null;
-    } catch (error) {
-      console.error("Error scraping events:", error);
-      throw new functions.https.HttpsError("internal", "Error scraping events");
-    }
-  });
 
 export const pushNotification = functions
   .region("europe-west1")
