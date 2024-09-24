@@ -56,7 +56,7 @@ export const scrapeEvents = functions
       const sanSiroParcheggiUrl = "https://webapi.easypark24.com/api/Event/GetEvent?ListParkings=1123&ListParkings=1130";
 
       // 1. Fetch data from all websites concurrently
-      const [sanSirostadiumData, livenationLaMauraData, livenationIppodromoData, sansiroparcheggiData] = await Promise.all([
+      const [sanSirostadiumData, sansiroparcheggiData, livenationLaMauraData, livenationIppodromoData] = await Promise.all([
         axios.get(sanSiroStadiumConcertsUrl),
         axios.get(sanSiroParcheggiUrl),
         axios.get(liveNationIppodromoLaMauraUrl),
@@ -237,8 +237,7 @@ function scrapeEventsFromSanSiroParcheggiSource(
         externalId,
       });
     }
-  }
-  );
+  });
 
   console.log(payload.length);
   return events;
