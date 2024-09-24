@@ -26,6 +26,20 @@ interface Event {
   externalId: string;
 }
 
+interface ApiEvent {
+  Id: number;
+  Description: string;
+  PlaceEventDescr: string;
+  Time: string;
+  IdParkings: Array<ParkingInfo>;
+}
+
+interface ParkingInfo {
+  IdParking: number;
+  FromDate: string;
+  ToDate: string;
+}
+
 const runtimeOpts = {
   timeoutSeconds: 300, // Increased timeout
 };
@@ -51,7 +65,7 @@ export const scrapeEvents = functions
 
       // 2. Parse data from all responses
       const sanSirostadiumEvents = scrapeEventsFromSansiroStadium(sanSirostadiumData.data, "Stadio San Siro");
-      const sanSiroParcheggiEvents = scrapeEventsFromSanSiroParcheggiSource(sansiroparcheggiData.data, "Stadio San Siro", sanSiroParcheggiUrl);
+      const sanSiroParcheggiEvents = scrapeEventsFromSanSiroParcheggiSource(sansiroparcheggiData.data, sanSiroParcheggiUrl);
       const livenationLaMauraEvents = scrapeEventsFromLiveNation(livenationLaMauraData.data, "Ippodromo La Maura");
       const livenationIppodromoEvents = scrapeEventsFromLiveNation(livenationIppodromoData.data, "Ippodromo San Siro");
 
@@ -177,60 +191,53 @@ function scrapeEventsFromSansiroStadium(
 /**
  *
  * @param {Object} payload api response
- * @param {String} location venue
  * @param {string} pageUrl page URL to scrape
  * @return {Event[]} events
  */
 function scrapeEventsFromSanSiroParcheggiSource(
-  payload: any,
-  location: string,
+  payload: Array<ApiEvent>,
   pageUrl: string
 ): Event[] {
   const events: Event[] = [];
   console.log("scraping " + pageUrl);
 
-  payload.forEach(
-    (event: {
-      Id: any;
-      Description: string;
-      PlaceEventDescr: any;
-      Time: string;
-      IdParkings: any;
-    }) => {
-      const externalId = event.Id;
-      console.log("externalEventId " + externalId);
+  const eventList = Array.from(payload);
 
-      const name = event.Description;
-      console.log("name " + name);
+  eventList.forEach((event) => {
+    const externalId = event.Id.toString();
+    console.log("externalEventId " + externalId);
 
-      const location = event.PlaceEventDescr;
-      console.log("location " + location);
+    const name = event.Description;
+    console.log("name " + name);
 
-      const time = event.Time;
-      console.log("time " + time);
+    const location = event.PlaceEventDescr;
+    console.log("location " + location);
 
-      const createdOn: Date = new Date();
-      const rawDate = event.IdParkings[0].FromDate;
-      const parsedDate = rawDate.substring(0, rawDate.indexOf("T"));
-      const stringedDate = parsedDate + "T" + time;
-      console.log("stringedDate " + stringedDate);
-      const date = parse(stringedDate, dateFormat, new Date(), {
-        locale: it,
+    const time = event.Time;
+    console.log("time " + time);
+
+    const createdOn: Date = new Date();
+    const rawDate = event.IdParkings[0].FromDate;
+    const parsedDate = rawDate.substring(0, rawDate.indexOf("T"));
+    const stringedDate = parsedDate + "T" + time;
+    console.log("stringedDate " + stringedDate);
+    const date = parse(stringedDate, dateFormat, new Date(), {
+      locale: it,
+    });
+
+    console.log("createdOn " + createdOn);
+    console.log("date " + date);
+
+    if (name && date) {
+      events.push({
+        name,
+        date,
+        location,
+        createdOn,
+        externalId,
       });
-
-      console.log("createdOn " + createdOn);
-      console.log("date " + date);
-
-      if (name && date) {
-        events.push({
-          name,
-          date,
-          location,
-          createdOn,
-          externalId,
-        });
-      }
     }
+  }
   );
 
   console.log(payload.length);
