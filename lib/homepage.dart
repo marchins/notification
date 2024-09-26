@@ -13,6 +13,23 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+class Event {
+  final String name;
+  final Timestamp date;
+  final String location;
+
+  Event({required this.name, required this.date, required this.location});
+
+  factory Event.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    return Event(
+      name: data['name'] ?? '',
+      date: (data['date'] as Timestamp),
+      location: data['location'] ?? '',
+    );
+  }
+}
+
 class _HomePageState extends State<HomePage> {
 
   @override
@@ -44,7 +61,8 @@ class ListTileWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prossimi eventi in zona'),
+        // TODO localization with properties?
+        title: const Text('Upcoming events'),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: firestoreService.getEvents(),
@@ -52,22 +70,21 @@ class ListTileWidget extends StatelessWidget {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return const Center(child: Text('Errore nel caricamento dei dati.'));
+            // TODO localization with properties?
+            return const Center(child: Text('No events available'));
           } else if (snapshot.hasData) {
-            List eventsList = snapshot.data!.docs;
-            eventsList.sort((a, b) => a.data()['date'].compareTo(b.data()['date']));
-            eventsList.removeWhere((element) => isBeforeToday(element.data()['date']));
+            List<Event> eventsList = snapshot.data!.docs.map((doc) => Event.fromFirestore(doc)).toList();;
+            eventsList.sort((a, b) => a.date.compareTo(b.date));
+            eventsList.removeWhere((element) => isBeforeToday(element.date));
             
             if (eventsList.isNotEmpty) {
               return ListView.builder(
                 itemCount: eventsList.length,
                 itemBuilder: (context, index) {
-                  DocumentSnapshot doc = eventsList[index];
-                  Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-                  Timestamp timestamp = data['date'];
+                  Event event = eventsList[index];
+                  Timestamp timestamp = event.date;
                   String formattedDate = formatter.format(timestamp.toDate());
-                  String title = "$formattedDate - ${data['location']}";
-                  String subtitle = data['name'];
+                  String title = "$formattedDate - ${event.location}";
 
                   DateTime eventDate = timestamp.toDate();
                   bool isToday = DateTime.now().year == eventDate.year &&
@@ -82,7 +99,7 @@ class ListTileWidget extends StatelessWidget {
                       children: <Widget>[
                         ListTile(
                           title: Text(title),
-                          subtitle: Text(subtitle),
+                          subtitle: Text(event.name),
                           leading: const Icon(Icons.event),
                         ),
                         Row(
