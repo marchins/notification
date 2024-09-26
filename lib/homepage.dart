@@ -63,7 +63,9 @@ class ListTileWidget extends StatelessWidget {
           // TODO localization with properties?
           title: const Text('Upcoming events'),
         ),
-        body: StreamBuilder<QuerySnapshot>(
+        body: Container(
+          color: Color.fromARGB(255, 16, 79, 108),
+          child: StreamBuilder<QuerySnapshot>(
           stream: firestoreService.getEvents(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -75,7 +77,7 @@ class ListTileWidget extends StatelessWidget {
               List<Event> eventsList = snapshot.data!.docs
                   .map((doc) => Event.fromFirestore(doc))
                   .toList();
-              ;
+
               eventsList.sort((a, b) => a.date.compareTo(b.date));
               eventsList.removeWhere((element) => isBeforeToday(element.date));
 
@@ -89,6 +91,7 @@ class ListTileWidget extends StatelessWidget {
                       )),
                 );
               }
+              
               return ListView.builder(
                 itemCount: eventsList.length,
                 itemBuilder: (context, index) {
@@ -102,35 +105,36 @@ class ListTileWidget extends StatelessWidget {
                   return Card(
                     margin: const EdgeInsets.all(10),
                     elevation: 4,
+                    color: daysUntilEvent > 0 ? Color.fromARGB(255, 211, 234, 248) : null,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
                             event.name,
                             // TODO replace const textstyle with theme
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "Location: ${event.location}",
-                            style: TextStyle(fontSize: 16),
+                            "${DateFormat(DateFormat.WEEKDAY).format(eventDate)} ${DateFormat('dd MMMM').format(eventDate)}",
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            "Date: ${DateFormat.yMMMd().format(eventDate)}",
-                            style: TextStyle(fontSize: 16),
+                            "${event.location}",
+                            style: TextStyle(fontSize: 17),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             daysUntilEvent > 0
                                 ? "Tra ${daysUntilEvent} giorni"
                                 : "Oggi",
-                            style: TextStyle(fontSize: 16, color: Colors.green),
+                            style: TextStyle(fontSize: 15, color: Colors.green),
                           ),
                         ],
                       ),
@@ -149,6 +153,6 @@ class ListTileWidget extends StatelessWidget {
               );
             }
           },
-        ));
+        )));
   }
 }
