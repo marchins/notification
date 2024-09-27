@@ -35,6 +35,8 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(useMaterial3: true),
+      darkTheme: ThemeData.dark(),
+      themeMode: ThemeMode.system,
       home: const ListTileWidget(),
     );
   }
@@ -64,7 +66,6 @@ class ListTileWidget extends StatelessWidget {
           title: const Text('Upcoming events'),
         ),
         body: Container(
-          color: Color.fromARGB(255, 16, 79, 108),
           child: StreamBuilder<QuerySnapshot>(
           stream: firestoreService.getEvents(),
           builder: (context, snapshot) {
@@ -102,10 +103,12 @@ class ListTileWidget extends StatelessWidget {
                   int daysUntilEvent =
                       eventDate.difference(DateTime.now()).inDays;
 
+                  var todayEventColor = Theme.of(context).brightness == Brightness.dark ? Color.fromARGB(80, 67, 109, 135) : Color.fromARGB(255, 249, 229, 131);
+
                   return Card(
                     margin: const EdgeInsets.all(10),
                     elevation: 4,
-                    color: daysUntilEvent > 0 ? Color.fromARGB(255, 211, 234, 248) : null,
+                    color: daysUntilEvent == 0 ? todayEventColor : null,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
