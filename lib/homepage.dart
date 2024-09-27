@@ -62,6 +62,7 @@ class ListTileWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
+          centerTitle: true,
           // TODO localization with properties?
           title: const Text('Upcoming events'),
         ),
