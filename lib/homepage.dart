@@ -116,9 +116,10 @@ class ListTileWidget extends StatelessWidget {
                         children: [
                           Text(
                             event.name,
+                            textAlign: TextAlign.center,
                             // TODO replace const textstyle with theme
                             style: const TextStyle(
-                              fontSize: 22,
+                              fontSize: 21,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -133,11 +134,12 @@ class ListTileWidget extends StatelessWidget {
                             style: TextStyle(fontSize: 17),
                           ),
                           const SizedBox(height: 8),
+                          //TODO localization
                           Text(
                             daysUntilEvent > 0
                                 ? "Tra ${daysUntilEvent} giorni"
                                 : "Oggi",
-                            style: TextStyle(fontSize: 15, color: Colors.green),
+                            style: daysUntilEvent < 30 ? TextStyle(fontSize: 15, color: Colors.green) : null,
                           ),
                         ],
                       ),
